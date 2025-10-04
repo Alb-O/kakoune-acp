@@ -3,7 +3,9 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
     cli::{PromptOptions, PromptOutput},
-    ipc::{self, DaemonResponse, PromptPayload, PromptResultPayload, TranscriptEvent},
+    ipc::{
+        self, ContextSnippet, DaemonResponse, PromptPayload, PromptResultPayload, TranscriptEvent,
+    },
     ipc_client, kakoune,
 };
 
@@ -18,7 +20,7 @@ pub async fn run(options: PromptOptions) -> Result<()> {
 
     let payload = PromptPayload {
         prompt: prompt_text.clone(),
-        context: options.context.clone(),
+        context: collect_context_snippets(&options).await?,
     };
 
     let response =
@@ -51,6 +53,32 @@ async fn read_prompt(options: &PromptOptions) -> Result<String> {
         .await
         .context("failed to read prompt from stdin")?;
     Ok(buffer)
+}
+
+async fn collect_context_snippets(options: &PromptOptions) -> Result<Vec<ContextSnippet>> {
+    let mut snippets = Vec::new();
+
+    for snippet in &options.context {
+        if snippet.trim().is_empty() {
+            continue;
+        }
+        snippets.push(ContextSnippet {
+            text: snippet.clone(),
+            label: None,
+        });
+    }
+
+    for path in &options.context_files {
+        let text = tokio::fs::read_to_string(path)
+            .await
+            .with_context(|| format!("failed to read context file {}", path.display()))?;
+        snippets.push(ContextSnippet {
+            text,
+            label: Some(format!("file: {}", path.display())),
+        });
+    }
+
+    Ok(snippets)
 }
 
 async fn handle_prompt_result(options: &PromptOptions, result: PromptResultPayload) -> Result<()> {
@@ -105,12 +133,20 @@ fn render_plain_text(result: &PromptResultPayload) -> String {
     output.push_str(result.user_prompt.trim_end());
     output.push_str("\n");
     if !result.context.is_empty() {
-        for snippet in &result.context {
-            output.push_str("\n[context]\n");
-            output.push_str(snippet);
-            output.push('\n');
+        output.push('\n');
+        output.push_str("=== Context ===\n");
+        for (index, snippet) in result.context.iter().enumerate() {
+            let display_index = index + 1;
+            if let Some(label) = &snippet.label {
+                output.push_str(&format!("[{display_index}] {label}\n"));
+            } else {
+                output.push_str(&format!("[{display_index}]\n"));
+            }
+            output.push_str(snippet.text.trim_end());
+            output.push_str("\n\n");
         }
     }
+
     output.push('\n');
 
     for event in &result.transcript {

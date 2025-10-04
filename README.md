@@ -56,10 +56,13 @@ The daemon spawns your ACP agent, establishes the protocol handshake, and listen
 kakoune-acp prompt \
   --socket /tmp/kakoune-acp.sock \
   --prompt "Summarise the current buffer" \
+  --context-file ~/notes/outline.txt \
   --output plain
 ```
 
 The `prompt` subcommand collects the agent's streamed updates, renders them into a human friendly transcript, and can optionally emit Kakoune commands (`--output kak-commands`) or send them directly back to the editor (`--send-to-kak`). When invoked from `%sh{}` the current `kak_session` and `kak_client` environment variables are honoured automatically.
+
+You can add additional context snippets inline (`--context "Consider the TODO list"`) or from files (`--context-file notes.md`). The prompt text can also be supplied via `--prompt-file` or piped in through stdin when neither flag is used.
 
 ### 3. Inspect or stop the daemon
 
