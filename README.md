@@ -35,6 +35,44 @@ nix build
 
 We also provide a [`justfile`](https://just.systems/) for Makefile'esque commands to be run inside of the devShell.
 
+## Kakoune Agent Client Protocol daemon
+
+This project now ships with a small utility that bridges the [Agent Client Protocol](https://agentclientprotocol.com/) into a Kakoune editing session. The binary exposes three subcommands:
+
+### 1. Start the daemon
+
+```bash
+kakount-acp daemon \
+  --socket /tmp/kakoune-acp.sock \
+  --cwd "$PWD" \
+  -- path/to/agent --arg value
+```
+
+The daemon spawns your ACP agent, establishes the protocol handshake, and listens for client commands on the provided Unix domain socket. The working directory is forwarded to the agent when creating the initial session.
+
+### 2. Send prompts from Kakoune (or the shell)
+
+```bash
+kakount-acp prompt \
+  --socket /tmp/kakoune-acp.sock \
+  --prompt "Summarise the current buffer" \
+  --output plain
+```
+
+The `prompt` subcommand collects the agent's streamed updates, renders them into a human friendly transcript, and can optionally emit Kakoune commands (`--output kak-commands`) or send them directly back to the editor (`--send-to-kak`). When invoked from `%sh{}` the current `kak_session` and `kak_client` environment variables are honoured automatically.
+
+### 3. Inspect or stop the daemon
+
+```bash
+# Check health
+kakount-acp status --socket /tmp/kakoune-acp.sock --json
+
+# Gracefully terminate
+kakount-acp shutdown --socket /tmp/kakoune-acp.sock
+```
+
+These helpers make it easy to wire the ACP integration into Kakoune commands or external scripts while keeping the agent process alive between prompt turns.
+
 ## Tips
 
 - Run `nix flake update` to update all flake inputs.
