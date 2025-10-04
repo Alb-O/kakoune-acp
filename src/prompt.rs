@@ -1,3 +1,5 @@
+use std::io::IsTerminal;
+
 use anyhow::{Context, Result, anyhow};
 use tokio::io::AsyncReadExt;
 
@@ -16,9 +18,10 @@ pub async fn run(options: PromptOptions) -> Result<()> {
         return Err(anyhow!("prompt is empty"));
     }
 
+    let context_snippets = read_context_snippets(&options).await?;
     let payload = PromptPayload {
         prompt: prompt_text.clone(),
-        context: options.context.clone(),
+        context: context_snippets,
     };
 
     let response =
@@ -37,6 +40,14 @@ pub async fn run(options: PromptOptions) -> Result<()> {
 }
 
 async fn read_prompt(options: &PromptOptions) -> Result<String> {
+    let prompt_from_stdin = options.prompt.is_none() && options.prompt_file.is_none();
+
+    if prompt_from_stdin && std::io::stdin().is_terminal() {
+        return Err(anyhow!(
+            "no prompt provided; pass --prompt, --prompt-file, or pipe text on stdin"
+        ));
+    }
+
     if let Some(prompt) = &options.prompt {
         return Ok(prompt.clone());
     }
@@ -51,6 +62,17 @@ async fn read_prompt(options: &PromptOptions) -> Result<String> {
         .await
         .context("failed to read prompt from stdin")?;
     Ok(buffer)
+}
+
+async fn read_context_snippets(options: &PromptOptions) -> Result<Vec<String>> {
+    let mut snippets = options.context.clone();
+    for path in &options.context_files {
+        let contents = tokio::fs::read_to_string(path)
+            .await
+            .with_context(|| format!("failed to read context file {}", path.display()))?;
+        snippets.push(contents);
+    }
+    Ok(snippets)
 }
 
 async fn handle_prompt_result(options: &PromptOptions, result: PromptResultPayload) -> Result<()> {
@@ -105,10 +127,12 @@ fn render_plain_text(result: &PromptResultPayload) -> String {
     output.push_str(result.user_prompt.trim_end());
     output.push_str("\n");
     if !result.context.is_empty() {
-        for snippet in &result.context {
-            output.push_str("\n[context]\n");
+        for (index, snippet) in result.context.iter().enumerate() {
+            output.push_str(&format!("\n[context #{}]\n", index + 1));
             output.push_str(snippet);
-            output.push('\n');
+            if !snippet.ends_with('\n') {
+                output.push('\n');
+            }
         }
     }
     output.push('\n');

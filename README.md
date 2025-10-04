@@ -61,6 +61,8 @@ kakoune-acp prompt \
 
 The `prompt` subcommand collects the agent's streamed updates, renders them into a human friendly transcript, and can optionally emit Kakoune commands (`--output kak-commands`) or send them directly back to the editor (`--send-to-kak`). When invoked from `%sh{}` the current `kak_session` and `kak_client` environment variables are honoured automatically.
 
+Prompts can come from `--prompt`, `--prompt-file`, or piped standard input. When stdin is interactive, the command now reminds you to specify one of those sources instead of waiting indefinitely. You can repeat `--context` or `--context-file` to attach additional snippets that help the agent answer your request.
+
 ### 3. Inspect or stop the daemon
 
 ```bash

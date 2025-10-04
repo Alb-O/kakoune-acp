@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Agent Client Protocol bridge for Kakoune")]
@@ -44,14 +44,17 @@ pub struct PromptOptions {
     #[arg(long)]
     pub socket: Option<PathBuf>,
     /// Explicit prompt text. If omitted, stdin is read instead.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "prompt_file")]
     pub prompt: Option<String>,
     /// Read the prompt from a file on disk.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "prompt", value_hint = ValueHint::FilePath)]
     pub prompt_file: Option<PathBuf>,
     /// Additional snippets of context that should be appended to the prompt.
     #[arg(long)]
     pub context: Vec<String>,
+    /// Read additional context snippets from files.
+    #[arg(long = "context-file", value_hint = ValueHint::FilePath)]
+    pub context_files: Vec<PathBuf>,
     /// Kakoune session to send responses back to.
     #[arg(long, env = "kak_session")]
     pub session: Option<String>,
