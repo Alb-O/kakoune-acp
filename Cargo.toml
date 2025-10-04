@@ -1,3 +1,5 @@
+cargo-features = ["edition2024"]
+
 [package]
 authors = ["Albert O'Shea <albertoshea2@gmail.com>"]
 edition = "2024"

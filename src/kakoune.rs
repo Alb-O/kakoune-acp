@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 
 pub fn resolve_socket_path(explicit: Option<PathBuf>, session: Option<&str>) -> Result<PathBuf> {
     if let Some(path) = explicit {

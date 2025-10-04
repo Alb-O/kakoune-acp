@@ -7,7 +7,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
     process::Command,
-    sync::{broadcast, Mutex, Notify},
+    sync::{Mutex, Notify, broadcast},
 };
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
