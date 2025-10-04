@@ -44,7 +44,7 @@ pub struct PromptOptions {
     #[arg(long)]
     pub socket: Option<PathBuf>,
     /// Explicit prompt text. If omitted, stdin is read instead.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "prompt_file")]
     pub prompt: Option<String>,
     /// Read the prompt from a file on disk.
     #[arg(long)]
@@ -52,6 +52,9 @@ pub struct PromptOptions {
     /// Additional snippets of context that should be appended to the prompt.
     #[arg(long)]
     pub context: Vec<String>,
+    /// Read additional context snippets from files (can be supplied multiple times).
+    #[arg(long = "context-file", value_name = "PATH")]
+    pub context_files: Vec<PathBuf>,
     /// Kakoune session to send responses back to.
     #[arg(long, env = "kak_session")]
     pub session: Option<String>,

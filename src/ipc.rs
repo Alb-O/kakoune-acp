@@ -15,7 +15,7 @@ pub enum DaemonRequest {
 pub struct PromptPayload {
     pub prompt: String,
     #[serde(default)]
-    pub context: Vec<String>,
+    pub context: Vec<ContextSnippet>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,8 +32,15 @@ pub struct PromptResultPayload {
     pub stop_reason: acp::StopReason,
     pub user_prompt: String,
     #[serde(default)]
-    pub context: Vec<String>,
+    pub context: Vec<ContextSnippet>,
     pub transcript: Vec<TranscriptEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSnippet {
+    pub text: String,
+    #[serde(default)]
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

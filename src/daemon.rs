@@ -247,7 +247,7 @@ impl InnerState {
         let mut prompt_blocks = Vec::new();
         prompt_blocks.push(acp::ContentBlock::from(prompt.clone()));
         for snippet in &context {
-            prompt_blocks.push(acp::ContentBlock::from(snippet.clone()));
+            prompt_blocks.push(acp::ContentBlock::from(snippet.text.clone()));
         }
 
         let mut updates = self.updates.subscribe();
