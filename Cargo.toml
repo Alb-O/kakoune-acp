@@ -1,0 +1,13 @@
+[package]
+authors = ["Albert O'Shea <albertoshea2@gmail.com>"]
+edition = "2021"
+# If you change the name here, you must also do it in flake.nix (and run `cargo generate-lockfile` afterwards)
+name = "kakount-acp"
+description = "A simple Rust project using Nix"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+agent-client-protocol = "0.4.5"
+clap = { version = "4.3.14", features = ["derive"] }

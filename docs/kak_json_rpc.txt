@@ -1,0 +1,155 @@
+Json-Rpc user interface
+=======================
+
+Kakoune user interfaces can be implemented through the
+https://www.jsonrpc.org/specification[json-rpc 2.0 protocol].
+
+By launching Kakoune in client mode with the `-ui json` option, the launched
+client will write newline separated json-rpc requests on stdout and read
+json-rpc requests on stdin.  Errors will be reported on stderr (not in
+json format).
+
+Kakoune requests are always using positional parameters, never named, and
+Kakoune won't be able to parse named parameters in requests.
+
+Here are the data structures used:
+
+* Color: a string, either a named color, or #rrggbb, or 'default'
+* Attribute: one of {underline, curly_underline, double_underline, reverse, blink, bold, dim, italic, final_fg, final_bg, final_attr}
+* Face { Color fg; Color bg; Array<Attribute> attributes; }
+* Atom { Face face; String contents; }
+* Line : Array of Atom
+* Coord { int line; int column }
+
+Here are the requests that can be written by the json ui on stdout:
+
+* draw(Array<Line> lines, Face default_face, Face padding_face)
+  padding_face is the face of the padding characters '~' in the
+  terminal UI.
+* draw_status(Line status_line, Line mode_line,
+              Face default_face)
+* menu_show(Array<Line> items, Coord anchor, Face selected_item_face, Face menu_face,
+            String style)
+  style can be:
+  - prompt: display the menu as a prompt menu (anchor is ignored)
+  - inline: display the menu next to (above or below) the anchor coordinate
+* menu_select(int selected)
+* menu_hide()
+* info_show(Line title, Array<Line> content, Coord anchor, Face face, String style)
+  style can be:
+  - prompt: display the info as a prompt info (anchor is ignored)
+  - inline: display the info next to (above or below) the anchor coordinate
+  - inlineAbove: display the info next to (above) the anchor coordinate
+  - inlineBelow: display the info next to (below) the anchor coordinate
+  - menuDoc: display the info next to the menu, as a documentation for it
+  - modal: display the info in a way that shows Kakoune is waiting for a
+    special action related to it.
+* info_hide()
+* set_cursor(String mode, Coord coord)
+  set the main cursor position
+  mode can be:
+  - prompt: the coordinate line should be 0, and the cursor is in the prompt area
+  - buffer: the cursor is in the buffer display area
+* set_ui_options(Map<String, String> options)
+  called when ui_options changed with a map of options name to option values
+* refresh(bool force)
+
+The requests that the json ui can interpret on stdin are:
+
+* keys(String key1, String key2...): keystrokes
+* resize(int rows, int columns): notify ui resize
+* scroll(int amount, int line, int colum): scroll by given line amount, line and
+  column relate to cursor position
+* mouse_move(int line, int column): line and column relate to the cursor position.
+* mouse_press(String button, int line, int column): line and column relate to
+  cursor position, button can be 'left', 'middle' or 'right'
+* mouse_release(String button, int line, int column): same.
+* menu_select(int index): explicit select of given menu entry
+
+---
+
+# JSON RPC
+
+Kakoune is able to talk to the outside world using a protocol called [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC)
+
+There's already a [document](https://github.com/mawww/kakoune/blob/master/doc/json_ui.asciidoc) describing what kind of information can transit during this discussion. I encourage you to read it first.
+
+This wiki page will attempt to illustrate how you can use this kakoune feature.
+
+## Output: `draw`, `draw_status`
+
+Let's start by creating a normal kakoune client. Open a terminal and run:
+
+```sh
+kak -s yolo
+```
+
+Here the `-s` flag indicates that we want to create a brand new `yolo` session.
+
+Open a second terminal, this time we create a kakoune client that does not display a nice ncurses GUI on the screen but print raw JSON output.
+
+```sh
+kak -c yolo -ui json
+```
+
+Since we decided to connect to the same `yolo` session. Everything you do in the first client will be `mirrored` in the second one. This way you can easily discover what's going on.
+
+Example of JSON output when the second client is launched :
+
+```json
+{ "jsonrpc": "2.0", "method": "draw", "params": [[[{ "face": { "fg": "#303030", "bg": "#d7d7d7", "attributes": [] }, "contents": "\u000a" }, { "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": "" }]], { "fg": "#d7d7d7", "bg": "#303030", "attributes": [] }, { "fg": "#afd787", "bg": "#303030", "attributes": [] }] }
+{ "jsonrpc": "2.0", "method": "menu_hide", "params": [] }
+{ "jsonrpc": "2.0", "method": "info_hide", "params": [] }
+{ "jsonrpc": "2.0", "method": "draw_status", "params": [[], [{ "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": "*scratch* 1:1 " }, { "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": " " }, { "face": { "fg": "#444444", "bg": "#d7d7d7", "attributes": [] }, "contents": "1 sel" }, { "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": " - unnamed1@[yolo]" }], { "fg": "#d7d7d7", "bg": "#444444", "attributes": [] }] }
+{ "jsonrpc": "2.0", "method": "refresh", "params": [true] }
+```
+
+After typing `iHello<esc>` in the first client, here's what the output :
+
+```json
+{ "jsonrpc": "2.0", "method": "draw", "params": [[[{ "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": "Hello" }, { "face": { "fg": "#303030", "bg": "#d7d7d7", "attributes": [] }, "contents": "\u000a" }, { "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": "" }]], { "fg": "#d7d7d7", "bg": "#303030", "attributes": [] }, { "fg": "#afd787", "bg": "#303030", "attributes": [] }] }
+{ "jsonrpc": "2.0", "method": "draw_status", "params": [[], [{ "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": "*scratch* 1:6 " }, { "face": { "fg": "#d7d7d7", "bg": "#5f875f", "attributes": [] }, "contents": "[+]" }, { "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": " " }, { "face": { "fg": "#444444", "bg": "#d7d7d7", "attributes": [] }, "contents": "1 sel" }, { "face": { "fg": "default", "bg": "default", "attributes": [] }, "contents": " - unnamed1@[yolo]" }], { "fg": "#d7d7d7", "bg": "#444444", "attributes": [] }] }
+{ "jsonrpc": "2.0", "method": "refresh", "params": [true] }
+```
+
+We can see the `Hello` contents in the `draw` method.
+
+If you decide to use some commands in the first client, using the `:` key, kakoune gives you nice feedback in `info` box. (you know, the infamous Clippy thing ;)).
+You could expect that displaying this info box will generate JSON output in the second client. But you won't find any object with `info_show` method. Like `menu_show`, these kind of methods are local per client. In a next section will see how to get this data.
+
+## Input: `keys` & Output: `info_show`
+
+We just discovered how to get messages from kakoune, but how do speak to it? Using `stdin`. To do so, we'll use a [named piped](https://en.wikipedia.org/wiki/Named_pipe) (FIFO). Everything we will stream to it will be passed to the running kakoune client.
+
+Open a new terminal and create a FIFO:
+
+```sh
+mkfifo /tmp/magritte
+```
+
+Start a new json kakoune client and plug in on this FIFO.
+
+```sh
+kak -c yolo -ui json -e 'set global autoinfo normal' < /tmp/magritte
+```
+
+Note that we also enabled a kakoune option which basically activate info all the time. You can consider it as a help++.
+
+Now, let's talk to kakoune through JSON-RPC protocol.
+
+```sh
+echo '{ "jsonrpc": "2.0", "method": "keys", "params": ["iHello<esc>"] }' > /tmp/magritte
+```
+
+If you still have your normal kakoune client running on the `yolo` session, you should see the word `Hello` appear in the buffer. On the second client, you'll see draw command.
+
+Let's try to trigger an info box:
+
+```sh
+echo '{ "jsonrpc": "2.0", "method": "keys", "params": ["%sl<ret>d"] }' > /tmp/magritte
+```
+Here, using the `d` key will trigger the info box `% : erase selected text`, and output in the second client:
+
+```sh
+{ "jsonrpc": "2.0", "method": "info_show", "params": ["d", "erase selected text", { "line": 0, "column": 0 }, { "fg": "#d7d7d7", "bg": "#5f875f", "attributes": [] }, "prompt"] }
+```
