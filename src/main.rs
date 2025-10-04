@@ -1,25 +1,29 @@
+mod cli;
+mod daemon;
+mod ipc;
+mod ipc_client;
+mod kakoune;
+mod prompt;
+mod status;
+mod transcript;
+
+use anyhow::Result;
 use clap::Parser;
 
-#[derive(Parser, Debug)]
-#[clap(author = "Albert O'Shea", version, about)]
-/// Application configuration
-struct Args {
-    /// whether to be verbose
-    #[arg(short = 'v')]
-    verbose: bool,
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_target(false)
+        .compact()
+        .init();
 
-    /// an optional name to greet
-    #[arg()]
-    name: Option<String>,
-}
+    let cli = cli::Cli::parse();
 
-fn main() {
-    let args = Args::parse();
-    if args.verbose {
-        println!("DEBUG {args:?}");
+    match cli.command {
+        cli::Command::Daemon(options) => daemon::run(options).await,
+        cli::Command::Prompt(options) => prompt::run(options).await,
+        cli::Command::Status(options) => status::run_status(options).await,
+        cli::Command::Shutdown(options) => status::run_shutdown(options).await,
     }
-    println!(
-        "Hello {} (from kakount-acp)!",
-        args.name.unwrap_or("world".to_string())
-    );
 }
