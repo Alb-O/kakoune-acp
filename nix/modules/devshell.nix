@@ -9,7 +9,7 @@
     }:
     {
       devShells.default = pkgs.mkShell {
-        name = "kakount-acp-shell";
+        name = "kakoune-acp-shell";
         inputsFrom = [
           self'.devShells.rust
           config.pre-commit.devShell # See ./nix/modules/pre-commit.nix

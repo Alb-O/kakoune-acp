@@ -2,7 +2,7 @@
 authors = ["Albert O'Shea <albertoshea2@gmail.com>"]
 edition = "2021"
 # If you change the name here, you must also do it in flake.nix (and run `cargo generate-lockfile` afterwards)
-name = "kakount-acp"
+name = "kakoune-acp"
 description = "A simple Rust project using Nix"
 version = "0.1.0"
 

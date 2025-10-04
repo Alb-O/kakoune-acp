@@ -1,13 +1,13 @@
 A template Rust project with fully functional and no-frills Nix support, as well as builtin VSCode configuration to get IDE experience without any manual setup (just [install direnv](https://nixos.asia/en/direnv), open in VSCode and accept the suggestions). It uses [crane](https://crane.dev/), via [rust-flake](https://github.com/juspay/rust-flake).
 
 > [!NOTE]
-> If you are looking for the original template based on [this blog post](https://srid.ca/rust-nix)'s use of `crate2nix`, browse from [this tag](https://github.com/srid/kakount-acp/tree/crate2nix). The evolution of this template can be gleaned from [releases](https://github.com/srid/kakount-acp/releases).
+> If you are looking for the original template based on [this blog post](https://srid.ca/rust-nix)'s use of `crate2nix`, browse from [this tag](https://github.com/srid/kakoune-acp/tree/crate2nix). The evolution of this template can be gleaned from [releases](https://github.com/srid/kakoune-acp/releases).
 
 ## Usage
 
 You can use [omnix](https://omnix.page/om/init.html)[^omnix] to initialize this template:
 ```
-nix run nixpkgs#omnix -- init github:srid/kakount-acp -o ~/my-rust-project
+nix run nixpkgs#omnix -- init github:srid/kakoune-acp -o ~/my-rust-project
 ```
 
 [^omnix]: If initializing manually, make sure to:
@@ -42,7 +42,7 @@ This project now ships with a small utility that bridges the [Agent Client Proto
 ### 1. Start the daemon
 
 ```bash
-kakount-acp daemon \
+kakoune-acp daemon \
   --socket /tmp/kakoune-acp.sock \
   --cwd "$PWD" \
   -- path/to/agent --arg value
@@ -53,7 +53,7 @@ The daemon spawns your ACP agent, establishes the protocol handshake, and listen
 ### 2. Send prompts from Kakoune (or the shell)
 
 ```bash
-kakount-acp prompt \
+kakoune-acp prompt \
   --socket /tmp/kakoune-acp.sock \
   --prompt "Summarise the current buffer" \
   --output plain
@@ -65,10 +65,10 @@ The `prompt` subcommand collects the agent's streamed updates, renders them into
 
 ```bash
 # Check health
-kakount-acp status --socket /tmp/kakoune-acp.sock --json
+kakoune-acp status --socket /tmp/kakoune-acp.sock --json
 
 # Gracefully terminate
-kakount-acp shutdown --socket /tmp/kakoune-acp.sock
+kakoune-acp shutdown --socket /tmp/kakoune-acp.sock
 ```
 
 These helpers make it easy to wire the ACP integration into Kakoune commands or external scripts while keeping the agent process alive between prompt turns.
