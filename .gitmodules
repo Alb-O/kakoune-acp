@@ -1,0 +1,3 @@
+[submodule "vendor/codex-acp"]
+	path = vendor/codex-acp
+	url = https://github.com/zed-industries/codex-acp
