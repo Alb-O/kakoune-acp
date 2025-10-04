@@ -1,6 +1,6 @@
 [package]
 authors = ["Albert O'Shea <albertoshea2@gmail.com>"]
-edition = "2021"
+edition = "2024"
 # If you change the name here, you must also do it in flake.nix (and run `cargo generate-lockfile` afterwards)
 name = "kakoune-acp"
 description = "A simple Rust project using Nix"
@@ -12,10 +12,20 @@ version = "0.1.0"
 agent-client-protocol = "0.4.5"
 anyhow = "1.0"
 async-trait = "0.1"
-clap = { version = "4.3.14", features = ["derive", "env"] }
+clap = { version = "4.5.48", features = ["derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.38", features = ["macros", "rt-multi-thread", "process", "fs", "io-util", "net", "sync", "signal", "io-std"] }
+tokio = { version = "1.47", features = [
+    "macros",
+    "rt-multi-thread",
+    "process",
+    "fs",
+    "io-util",
+    "net",
+    "sync",
+    "signal",
+    "io-std",
+] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

@@ -18,6 +18,7 @@
           just
           nixd # Nix language server
           bacon
+          cargo-edit
           config.process-compose.cargo-doc-live.outputs.package
 
           # For testing
