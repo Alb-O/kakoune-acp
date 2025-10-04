@@ -1,4 +1,5 @@
 use std::{
+    env,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -57,17 +58,17 @@ impl DaemonHandle {
         self._tempdir.path()
     }
 
-    async fn shutdown(mut self) -> Result<()> {
+    async fn shutdown(mut self) -> Result<String> {
         let kakoune_acp = cargo_bin("kakoune-acp");
-        let shutdown_status = Command::new(&kakoune_acp)
+        let shutdown_output = Command::new(&kakoune_acp)
             .arg("shutdown")
             .arg("--socket")
             .arg(&self.socket_path)
-            .status()
+            .output()
             .await
             .context("failed to send shutdown request")?;
 
-        if !shutdown_status.success() {
+        if !shutdown_output.status.success() {
             let _ = self.child.start_kill();
         }
 
@@ -81,7 +82,15 @@ impl DaemonHandle {
             }
         }
 
-        Ok(())
+        anyhow::ensure!(
+            shutdown_output.status.success(),
+            "shutdown command failed: {}",
+            String::from_utf8_lossy(&shutdown_output.stderr)
+        );
+
+        let stdout = String::from_utf8(shutdown_output.stdout)
+            .context("shutdown output was not valid UTF-8")?;
+        Ok(stdout)
     }
 }
 
@@ -215,7 +224,93 @@ async fn prompt_transcript_workflows() -> Result<()> {
     assert!(transcript.iter().any(|event| event["kind"] == "plan"));
     assert!(transcript.iter().any(|event| event["kind"] == "tool_call"));
 
-    daemon.shutdown().await
+    daemon.shutdown().await.map(|_| ())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prompt_kak_commands_output_wraps_in_info_command() -> Result<()> {
+    let daemon = DaemonHandle::spawn().await?;
+    let socket_path = daemon.socket_path().clone();
+
+    let context_file = daemon.working_dir().join("context.txt");
+    tokio::fs::write(&context_file, "Context from file\n").await?;
+
+    let kakoune_acp = cargo_bin("kakoune-acp");
+    let output = Command::new(&kakoune_acp)
+        .arg("prompt")
+        .arg("--socket")
+        .arg(&socket_path)
+        .arg("--prompt")
+        .arg("Render kak commands")
+        .arg("--context-file")
+        .arg(&context_file)
+        .arg("--output")
+        .arg("kak-commands")
+        .arg("--title")
+        .arg("Integration Title")
+        .arg("--client")
+        .arg("main")
+        .output()
+        .await
+        .context("failed to run prompt command with kak-commands output")?;
+
+    anyhow::ensure!(
+        output.status.success(),
+        "prompt kak-commands failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout)
+        .context("prompt kak-commands output was not valid UTF-8")?;
+    assert!(stdout.starts_with("eval -client 'main' %{"));
+    assert!(stdout.contains("info -title 'Integration Title'"));
+    assert!(stdout.contains("=== Prompt ==="));
+    assert!(stdout.contains("Render kak commands"));
+    assert!(stdout.contains("[1] file:"));
+
+    daemon.shutdown().await.map(|_| ())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn daemon_status_and_shutdown_roundtrip() -> Result<()> {
+    let daemon = DaemonHandle::spawn().await?;
+    let socket_path = daemon.socket_path().clone();
+
+    let status = run_status(&socket_path).await?;
+    assert_eq!(status["running"], Value::Bool(true));
+    assert!(status["session_id"].is_string());
+
+    let message = daemon.shutdown().await?;
+    assert!(message.contains("daemon shut down"));
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prompt_send_to_kak_requires_session() -> Result<()> {
+    let daemon = DaemonHandle::spawn().await?;
+    let socket_path = daemon.socket_path().clone();
+
+    let kakoune_acp = cargo_bin("kakoune-acp");
+    let output = Command::new(&kakoune_acp)
+        .arg("prompt")
+        .arg("--socket")
+        .arg(&socket_path)
+        .arg("--prompt")
+        .arg("trigger send to kak")
+        .arg("--send-to-kak")
+        .output()
+        .await
+        .context("failed to run prompt command with send-to-kak")?;
+
+    assert!(
+        !output.status.success(),
+        "send-to-kak prompt unexpectedly succeeded"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires a Kakoune session"));
+
+    daemon.shutdown().await.map(|_| ())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -229,17 +324,32 @@ async fn prompt_send_to_kak_when_available() -> Result<()> {
     let socket_path = daemon.socket_path().clone();
 
     let session_name = format!("acp-test-{}", std::process::id());
-    let mut kak_process = Command::new("kak")
-        .arg("-ui")
-        .arg("dummy")
-        .arg("-n")
-        .arg(&session_name)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+    let ui_observation = env::var_os("KAKOUNE_ACP_UI_TEST").is_some();
+
+    let Some(kak_path) = find_kak() else {
+        eprintln!("kak executable not found, skipping integration test");
+        return Ok(());
+    };
+
+    let mut kak_command = Command::new(&kak_path);
+    if !ui_observation {
+        kak_command.arg("-ui").arg("dummy").arg("-n");
+        kak_command
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+    } else {
+        kak_command
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit());
+    }
+    kak_command.arg("-s").arg(&session_name);
+    let mut kak_process = kak_command
         .spawn()
         .context("failed to launch kakoune for send-to-kak test")?;
 
-    sleep(Duration::from_millis(500)).await;
+    if ui_observation {
+        sleep(Duration::from_secs(2)).await;
+    }
 
     let kakoune_acp = cargo_bin("kakoune-acp");
     let output = Command::new(&kakoune_acp)
@@ -265,15 +375,79 @@ async fn prompt_send_to_kak_when_available() -> Result<()> {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    send_to_kak(&session_name, "quit").await?;
-    let _ = tokio::time::timeout(Duration::from_secs(5), kak_process.wait()).await;
+    if ui_observation {
+        sleep(Duration::from_secs(3)).await;
+    }
 
-    daemon.shutdown().await
+    send_to_kak(&session_name, "quit").await?;
+
+    if ui_observation {
+        let _ = tokio::time::timeout(Duration::from_secs(15), kak_process.wait()).await;
+    } else if tokio::time::timeout(Duration::from_millis(200), kak_process.wait())
+        .await
+        .is_err()
+    {
+        let _ = kak_process.start_kill();
+        let _ = kak_process.wait().await;
+    }
+
+    daemon.shutdown().await.map(|_| ())
+}
+
+fn find_kak() -> Option<PathBuf> {
+    if let Some(path) = env::var_os("KAKOUNE_ACP_KAK") {
+        let path = PathBuf::from(path);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+
+    if let Ok(output) = std::process::Command::new("which").arg("kak").output() {
+        if output.status.success() {
+            let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !raw.is_empty() {
+                let candidate = PathBuf::from(raw);
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    let base = PathBuf::from("kak");
+    if base.is_absolute() && base.exists() {
+        return Some(base);
+    }
+
+    let mut candidates = Vec::new();
+
+    if let Some(path_var) = env::var_os("PATH") {
+        candidates.extend(env::split_paths(&path_var).map(|entry| entry.join("kak")));
+    }
+
+    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+        candidates.extend([
+            home.join(".nix-profile/bin/kak"),
+            home.join(".local/state/nix/profiles/profile/bin/kak"),
+            home.join(".local/bin/kak"),
+        ]);
+    }
+
+    candidates.extend([
+        PathBuf::from("/run/current-system/sw/bin/kak"),
+        PathBuf::from("/nix/var/nix/profiles/default/bin/kak"),
+    ]);
+
+    candidates.into_iter().find(|candidate| candidate.exists())
 }
 
 async fn kak_available() -> bool {
-    Command::new("kak")
-        .arg("--version")
+    let Some(kak_path) = find_kak() else {
+        return false;
+    };
+
+    Command::new(&kak_path)
+        .arg("-version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
@@ -283,7 +457,11 @@ async fn kak_available() -> bool {
 }
 
 async fn send_to_kak(session: &str, command: &str) -> Result<()> {
-    let mut process = Command::new("kak")
+    let Some(kak_path) = find_kak() else {
+        anyhow::bail!("kak executable not found in PATH");
+    };
+
+    let mut process = Command::new(&kak_path)
         .arg("-p")
         .arg(session)
         .stdin(std::process::Stdio::piped())

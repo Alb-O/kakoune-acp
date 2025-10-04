@@ -278,6 +278,26 @@ impl InnerState {
                 }
                 response = &mut prompt_future => {
                     let response = response?;
+                    loop {
+                        match updates.try_recv() {
+                            Ok(notification) => {
+                                if notification.session_id == self.session_id {
+                                    collector.record_notification(notification);
+                                }
+                            }
+                            Err(broadcast::error::TryRecvError::Empty) => {
+                                break;
+                            }
+                            Err(broadcast::error::TryRecvError::Lagged(skipped)) => {
+                                tracing::warn!(skipped, "dropped {skipped} pending session notifications");
+                                continue;
+                            }
+                            Err(broadcast::error::TryRecvError::Closed) => {
+                                tracing::warn!("session notification channel closed while draining");
+                                break;
+                            }
+                        }
+                    }
                     return Ok(PromptResultPayload {
                         stop_reason: response.stop_reason,
                         user_prompt: prompt,

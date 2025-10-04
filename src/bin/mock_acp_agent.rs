@@ -100,12 +100,9 @@ impl acp::Agent for MockAgent {
         let session_id = arguments.session_id.clone();
         let summary = summarize_prompt_blocks(&arguments.prompt);
 
-        self.send_update(
-            &session_id,
-            acp::SessionUpdate::AgentThoughtChunk {
-                content: format!("Thinking about: {summary}").into(),
-            },
-        )
+        self.send_update(&session_id, acp::SessionUpdate::AgentThoughtChunk {
+            content: format!("Thinking about: {summary}").into(),
+        })
         .await?;
 
         self.send_update(
@@ -130,19 +127,16 @@ impl acp::Agent for MockAgent {
         )
         .await?;
 
-        self.send_update(
-            &session_id,
-            acp::SessionUpdate::AvailableCommandsUpdate {
-                available_commands: vec![acp::AvailableCommand {
-                    name: "apply_suggestion".into(),
-                    description: "Apply the generated response to the buffer".into(),
-                    input: Some(acp::AvailableCommandInput::Unstructured {
-                        hint: "Type edits that should be applied".into(),
-                    }),
-                    meta: None,
-                }],
-            },
-        )
+        self.send_update(&session_id, acp::SessionUpdate::AvailableCommandsUpdate {
+            available_commands: vec![acp::AvailableCommand {
+                name: "apply_suggestion".into(),
+                description: "Apply the generated response to the buffer".into(),
+                input: Some(acp::AvailableCommandInput::Unstructured {
+                    hint: "Type edits that should be applied".into(),
+                }),
+                meta: None,
+            }],
+        })
         .await?;
 
         let tool_id = acp::ToolCallId("write_summary".into());
@@ -179,20 +173,14 @@ impl acp::Agent for MockAgent {
         )
         .await?;
 
-        self.send_update(
-            &session_id,
-            acp::SessionUpdate::CurrentModeUpdate {
-                current_mode_id: acp::SessionModeId("writer".into()),
-            },
-        )
+        self.send_update(&session_id, acp::SessionUpdate::CurrentModeUpdate {
+            current_mode_id: acp::SessionModeId("writer".into()),
+        })
         .await?;
 
-        self.send_update(
-            &session_id,
-            acp::SessionUpdate::AgentMessageChunk {
-                content: "Here is your concise summary.".into(),
-            },
-        )
+        self.send_update(&session_id, acp::SessionUpdate::AgentMessageChunk {
+            content: "Here is your concise summary.".into(),
+        })
         .await?;
 
         sleep(Duration::from_millis(50)).await;
