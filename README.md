@@ -5,14 +5,40 @@ A template Rust project with fully functional and no-frills Nix support, as well
 
 ## Usage
 
-You can use [omnix](https://omnix.page/om/init.html)[^omnix] to initialize this template:
+The `kakount-acp` binary acts as a small client that bridges [Kakoune](https://kakoune.org) with
+an [Agent Client Protocol](https://github.com/modelcontextprotocol/agent-client-protocol) agent.
+
+Run Kakoune in the usual way and trigger the client from a `%sh{}` block or a custom command.
+`kakount-acp` expects the `kak_session` and `kak_client` environment variables supplied by Kakoune
+so it knows which client to target. The agent executable is provided with `--agent` along with
+optional arguments:
+
+```sh
+%sh{
+    kakount-acp \
+        --agent "$HOME/bin/example-agent" \
+        --agent-arg "--api-key" \
+        --agent-arg "$API_KEY" \
+        --prompt "$kak_selection"
+}
+```
+
+While the command is running, progress and streamed agent responses are surfaced in Kakoune using
+`info` windows. When the agent turn completes, the final stop reason is displayed in the same area.
+
+> [!TIP]
+> Combine this tool with Kakoune hooks to bind an *ACP prompt* command that forwards the current
+> selection or buffer to your agent of choice.
+
+`kakount-acp` still carries the original project scaffolding, so you can continue to use
+[omnix](https://omnix.page/om/init.html)[^omnix] to bootstrap new projects if you wish:
 ```
 nix run nixpkgs#omnix -- init github:srid/kakount-acp -o ~/my-rust-project
 ```
 
 [^omnix]: If initializing manually, make sure to:
     - Change `name` in Cargo.toml.
-    - Run `cargo generate-lockfile` in the nix shelld
+    - Run `cargo generate-lockfile` in the nix shell
 
 ## Adapting this template
 

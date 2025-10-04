@@ -10,4 +10,11 @@ version = "0.1.0"
 
 [dependencies]
 agent-client-protocol = "0.4.5"
-clap = { version = "4.3.14", features = ["derive"] }
+anyhow = "1.0"
+async-trait = "0.1"
+clap = { version = "4.3.14", features = ["derive", "env"] }
+env_logger = "0.10"
+log = "0.4"
+futures = "0.3"
+tokio = { version = "1.37", features = ["macros", "rt", "rt-multi-thread", "process", "io-util", "io-std", "sync", "signal"] }
+tokio-util = { version = "0.7", features = ["compat"] }
